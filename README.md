@@ -26,6 +26,11 @@
 
  - Open your browser and navigate to: http://localhost:3000
 
+ - For live reload during development, install [cargo-watch](https://github.com/watchexec/cargo-watch) and run:
+    ```bash
+    cargo watch -x run
+    ```
+
 ## Deployment
 - Build and start the container
    ```bash
