@@ -7,13 +7,14 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container">
+    <main class="container">
         <ul>
             <li><a href="https://github.com/s1dny/paste" target="_blank">open source</a> pastebin clone</li>
             <li>no ads, no tracking, no cookies</li>
             <li>temporary by default (24 hour expiry)</li>
             <li>unlisted by default (only 22 bits of entropy, do not rely on for security!)</li>
             <li>automatic syntax highlighting with <a href="https://highlightjs.org/" target="_blank">highlight.js</a></li>
+            <li>curl --data-binary @- https://paste.aza.network/api/paste < file.txt</li>
         </ul>
         
         <form action="/paste" method="post">
@@ -27,6 +28,6 @@
                 btn.disabled = textarea.value.trim().length === 0;
             });
         </script>
-    </div>
+    </main>
 </body>
 </html>

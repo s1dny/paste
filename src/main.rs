@@ -1,13 +1,13 @@
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
     http::StatusCode,
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{Html, IntoResponse, Json, Redirect, Response},
     routing::{get, post},
     Form, Router,
 };
 use chrono::{DateTime, Duration, Utc};
 use rand::prelude::IndexedRandom;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     sync::{Arc, LazyLock, RwLock},
@@ -16,7 +16,7 @@ use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
 static WORDLIST: LazyLock<Vec<&'static str>> =
-    LazyLock::new(|| include_str!("../wordlist.txt").lines().collect());
+    LazyLock::new(|| include_str!("../assets/wordlist.txt").lines().collect());
 
 struct AppState {
     pastes: RwLock<HashMap<String, Paste>>,
@@ -32,6 +32,12 @@ struct Paste {
 #[derive(Deserialize)]
 struct PasteForm {
     content: String,
+}
+
+#[derive(Serialize)]
+struct ApiResponse {
+    id: String,
+    url: String,
 }
 
 #[tokio::main]
@@ -54,6 +60,7 @@ async fn main() {
         .route("/paste", post(create_paste_handler))
         .route("/{id}", get(view_paste_handler))
         .route("/{id}/raw", get(raw_paste_handler))
+        .route("/api/paste", post(api_create_paste_handler))
         .nest_service("/static", ServeDir::new("static"))
         .layer(DefaultBodyLimit::max(1024 * 1024))
         .with_state(app_state);
@@ -67,25 +74,49 @@ async fn home_handler() -> Html<&'static str> {
     Html(include_str!("../static/index.html"))
 }
 
-async fn create_paste_handler(
-    State(state): State<Arc<AppState>>,
-    Form(form): Form<PasteForm>,
-) -> impl IntoResponse {
+fn insert_paste(state: &AppState, content: String) -> String {
     let now = Utc::now();
     let paste = Paste {
-        content: form.content,
+        content,
         created_at: now,
         expires_at: now + Duration::hours(24),
     };
 
-    let id = {
-        let mut pastes = state.pastes.write().unwrap();
-        let id = generate_unique_id(&pastes);
-        pastes.insert(id.clone(), paste);
-        id
-    };
+    let mut pastes = state.pastes.write().unwrap();
+    let id = generate_unique_id(&pastes);
+    pastes.insert(id.clone(), paste);
+    id
+}
 
+async fn create_paste_handler(
+    State(state): State<Arc<AppState>>,
+    Form(form): Form<PasteForm>,
+) -> impl IntoResponse {
+    let id = insert_paste(&state, form.content);
     Redirect::to(&format!("/{}", id))
+}
+
+async fn api_create_paste_handler(
+    State(state): State<Arc<AppState>>,
+    body: String,
+) -> impl IntoResponse {
+    if body.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "content must not be empty"})),
+        )
+            .into_response();
+    }
+
+    let id = insert_paste(&state, body);
+    (
+        StatusCode::CREATED,
+        Json(ApiResponse {
+            url: format!("/{}", id),
+            id,
+        }),
+    )
+        .into_response()
 }
 
 async fn view_paste_handler(

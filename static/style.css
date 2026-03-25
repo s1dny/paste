@@ -1,3 +1,11 @@
+@font-face {
+    font-family: 'Sometype Mono';
+    src: url('/static/SometypeMono-latin-400.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -6,7 +14,7 @@
 
 body {
     color: #ddd;
-    font-family: monospace;
+    font-family: 'Sometype Mono', monospace;
     line-height: 1.5;
     width: 100%;
     max-width: 1000px;
@@ -39,11 +47,33 @@ li {
     margin-bottom: 6px;
 }
 
+.api-usage {
+    margin-bottom: 20px;
+    color: #565f89;
+}
+
+.api-usage summary {
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.api-usage pre {
+    background-color: #24283b;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    overflow-x: auto;
+}
+
+.api-usage code {
+    font-size: 14px;
+}
+
 textarea {
     width: 100%;
     min-height: 300px;
     padding: 10px;
-    font-family: monospace;
+    font-family: 'Sometype Mono', monospace;
     font-size: 16px;
     color: #ddd;
     border: 1px solid #24283b;
@@ -67,7 +97,7 @@ textarea:focus {
     text-decoration: none;
     font-size: 16px;
     cursor: pointer;
-    font-family: monospace;
+    font-family: 'Sometype Mono', monospace;
     border: none;
 }
 
@@ -80,13 +110,23 @@ textarea:focus {
     cursor: not-allowed;
 }
 
+.line-number {
+    color: #565f89;
+    user-select: none;
+    margin-right: 16px;
+}
+
 p,
 pre {
     font-size: 16px;
 }
 
+pre code.hljs {
+    padding: 0;
+}
+
 code {
-    font-family: monospace;
+    font-family: 'Sometype Mono', monospace;
 }
 
 a {

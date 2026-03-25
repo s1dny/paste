@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container">
+    <main class="container">
         <header>
             <p style="display: flex; gap: 32px;">
                 <span>{{CREATION_TIME}} UTC</span>
@@ -23,19 +23,27 @@
         
         <div id="toast" class="toast">copied to clipboard</div>
         
-        <pre><code>{{PASTE_CONTENT}}</code></pre>
-    </div>
-    
+        <pre style="visibility: hidden;"><code>{{PASTE_CONTENT}}</code></pre>
+    </main>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             hljs.highlightAll();
 
+            const codeElement = document.querySelector('code');
+            const lines = codeElement.innerHTML.split('\n');
+            codeElement.innerHTML = lines.map((line, i) => {
+                const num = String(i + 1).padStart(String(lines.length).length, ' ');
+                return `<span class="line-number">${num}</span>${line}`;
+            }).join('\n');
+
+            document.querySelector('pre').style.visibility = 'visible';
+
             const copyBtn = document.getElementById('copy-btn');
             const rawBtn = document.getElementById('raw-btn');
             const homeBtn = document.getElementById('home-btn');
             const toast = document.getElementById('toast');
-            const codeElement = document.querySelector('code');
 
             copyBtn.addEventListener('click', async () => {
                 await navigator.clipboard.writeText(codeElement.textContent);
