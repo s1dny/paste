@@ -1,7 +1,7 @@
 # Paste
 ### A minimal [Pastebin](https://pastebin.com/) clone built with Rust and Axum
 
-![](img/paste.png)
+![](img/paste.webp)
 
 ## Features
 
