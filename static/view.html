@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{PASTE_ID}}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/tokyo-night-dark.min.css">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -26,47 +26,29 @@
         <pre><code>{{PASTE_CONTENT}}</code></pre>
     </div>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             hljs.highlightAll();
-        });
-    </script>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
+
             const copyBtn = document.getElementById('copy-btn');
             const rawBtn = document.getElementById('raw-btn');
             const homeBtn = document.getElementById('home-btn');
             const toast = document.getElementById('toast');
             const codeElement = document.querySelector('code');
-            
-            const detectedLanguageSpan = document.getElementById('detected-language');
-            const languageStatElement = document.getElementById('language-stat');
 
-            if (detectedLanguageSpan && languageStatElement && detectedLanguageSpan.textContent && detectedLanguageSpan.textContent.trim() !== '' && detectedLanguageSpan.textContent.trim().toLowerCase() !== 'none') {
-                languageStatElement.style.display = 'block';
-            }
-            
-            copyBtn.addEventListener('click', () => {
-                // Create a temporary textarea element to copy the text
-                const textarea = document.createElement('textarea');
-                textarea.value = codeElement.textContent;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                
+            copyBtn.addEventListener('click', async () => {
+                await navigator.clipboard.writeText(codeElement.textContent);
                 toast.style.display = 'block';
                 setTimeout(() => {
                     toast.style.display = 'none';
                 }, 2000);
             });
-            
+
             rawBtn.addEventListener('click', () => {
                 window.location.href = "/{{PASTE_ID}}/raw";
             });
-            
+
             homeBtn.addEventListener('click', () => {
                 window.location.href = "/";
             });

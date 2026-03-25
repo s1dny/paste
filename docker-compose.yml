@@ -1,6 +1,6 @@
 services:
-  ctrlv:
-    image: ctrlv:latest
+  paste:
+    image: paste:latest
     build:
       context: .
       dockerfile: Dockerfile

@@ -18,7 +18,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # copy the binary and necessary files from the builder
-COPY --from=builder /app/target/release/ctrlv /app/ctrlv
+COPY --from=builder /app/target/release/paste /app/paste
 COPY --from=builder /app/static /app/static
 COPY --from=builder /app/wordlist.txt /app/wordlist.txt
 
@@ -26,4 +26,4 @@ COPY --from=builder /app/wordlist.txt /app/wordlist.txt
 EXPOSE 3000
 
 # run the binary
-CMD ["./ctrlv"]
+CMD ["./paste"]

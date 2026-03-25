@@ -5,30 +5,26 @@ use axum::{
     routing::{get, post},
     Form, Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use rand::prelude::IndexedRandom;
 use serde::Deserialize;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
-    fs::File,
-    io::{BufRead, BufReader},
-    path::PathBuf,
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
 };
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
 struct AppState {
     pastes: Mutex<HashMap<String, Paste>>,
-    wordlist: Vec<String>,
+    wordlist: Vec<&'static str>,
 }
 
+#[derive(Clone)]
 struct Paste {
     content: String,
-    created_at: Instant,
-    expires_at: Instant,
+    created_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
 }
 
 #[derive(Deserialize)]
@@ -38,19 +34,13 @@ struct PasteForm {
 
 #[tokio::main]
 async fn main() {
-    // read the wordlist
-    let wordlist_path = PathBuf::from("wordlist.txt");
-    let file = File::open(&wordlist_path).expect("Failed to open wordlist.txt");
-    let reader = BufReader::new(file);
-    let wordlist: Vec<String> = reader.lines().filter_map(Result::ok).collect();
+    let wordlist: Vec<&str> = include_str!("../wordlist.txt").lines().collect();
 
-    // create app state
     let app_state = Arc::new(AppState {
         pastes: Mutex::new(HashMap::new()),
         wordlist,
     });
 
-    // build our application with routes
     let app = Router::new()
         .route("/", get(home_handler))
         .route("/paste", post(create_paste_handler))
@@ -59,55 +49,45 @@ async fn main() {
         .nest_service("/static", ServeDir::new("static"))
         .with_state(app_state);
 
-    // run the server
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");
     axum::serve(listener, app).await.unwrap();
 }
 
-// handler for the home page
-async fn home_handler() -> Html<String> {
-    Html(include_str!("../static/index.html").to_string())
+async fn home_handler() -> Html<&'static str> {
+    Html(include_str!("../static/index.html"))
 }
 
-// handler for creating a new paste
 async fn create_paste_handler(
     State(state): State<Arc<AppState>>,
     Form(form): Form<PasteForm>,
 ) -> impl IntoResponse {
-    // generate a unique id
-    let id = generate_unique_id(&state);
-
-    // store the paste with a 24-hour ttl
-    let now = Instant::now();
-    let expires_at = now + Duration::from_secs(24 * 60 * 60);
+    let now = Utc::now();
     let paste = Paste {
         content: form.content,
         created_at: now,
-        expires_at,
+        expires_at: now + Duration::hours(24),
     };
 
-    // add to the pastes hashmap
-    {
+    let id = {
         let mut pastes = state.pastes.lock().unwrap();
+        let id = generate_unique_id(&state, &pastes);
         pastes.insert(id.clone(), paste);
-    }
+        id
+    };
 
-    // clean up expired pastes
     cleanup_expired_pastes(&state);
 
-    // redirect to the paste view
     Redirect::to(&format!("/{}", id))
 }
 
-// handler for viewing a paste
 async fn view_paste_handler(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Response {
     match get_paste(&state, &id) {
         Some(paste) => {
-            let creation_time_str = format_datetime(paste.created_at);
+            let creation_time_str = paste.created_at.format("%Y-%m-%d %H:%M:%S").to_string();
             let paste_size_str = format_size(paste.content.len());
 
             let html = include_str!("../static/view.html")
@@ -125,7 +105,6 @@ async fn view_paste_handler(
     }
 }
 
-// handler for viewing raw paste content
 async fn raw_paste_handler(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
     match get_paste(&state, &id) {
         Some(paste) => (
@@ -143,58 +122,35 @@ async fn raw_paste_handler(State(state): State<Arc<AppState>>, Path(id): Path<St
     }
 }
 
-// helper function to get a paste if it exists and hasn't expired
-fn get_paste(state: &Arc<AppState>, id: &str) -> Option<Paste> {
+fn get_paste(state: &AppState, id: &str) -> Option<Paste> {
     let pastes = state.pastes.lock().unwrap();
-    pastes.get(id).and_then(|paste_ref| {
-        if paste_ref.expires_at > Instant::now() {
-            Some(Paste {
-                content: paste_ref.content.clone(),
-                created_at: paste_ref.created_at,
-                expires_at: paste_ref.expires_at,
-            })
-        } else {
-            None
-        }
-    })
+    pastes
+        .get(id)
+        .filter(|paste| paste.expires_at > Utc::now())
+        .cloned()
 }
 
-// helper function to generate a unique id from two random words
-fn generate_unique_id(state: &Arc<AppState>) -> String {
+fn generate_unique_id(state: &AppState, pastes: &HashMap<String, Paste>) -> String {
     let mut rng = rand::rng();
-
     loop {
         let word1 = state.wordlist.choose(&mut rng).unwrap();
         let word2 = state.wordlist.choose(&mut rng).unwrap();
         let id = format!("{}.{}", word1, word2);
-
-        // ensure the id is unique
-        let pastes = state.pastes.lock().unwrap();
         if !pastes.contains_key(&id) {
             return id;
         }
     }
 }
 
-// helper function to clean up expired pastes
-fn cleanup_expired_pastes(state: &Arc<AppState>) {
-    let now = Instant::now();
-    let mut pastes = state.pastes.lock().unwrap();
-
-    // collect keys to remove
-    let expired_keys: Vec<String> = pastes
-        .iter()
-        .filter(|(_, paste)| paste.expires_at <= now)
-        .map(|(id, _)| id.clone())
-        .collect();
-
-    // remove expired pastes
-    for key in expired_keys {
-        pastes.remove(&key);
-    }
+fn cleanup_expired_pastes(state: &AppState) {
+    let now = Utc::now();
+    state
+        .pastes
+        .lock()
+        .unwrap()
+        .retain(|_, paste| paste.expires_at > now);
 }
 
-// helper function to escape html characters
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -203,18 +159,6 @@ fn html_escape(s: &str) -> String {
         .replace('\'', "&#39;")
 }
 
-// helper function to format an instant into a human-readable datetime string
-fn format_datetime(instant: Instant) -> String {
-    let elapsed = Instant::now().duration_since(instant);
-
-    let system_time = SystemTime::now().checked_sub(elapsed).unwrap_or(UNIX_EPOCH);
-
-    let datetime: DateTime<Utc> = system_time.into();
-
-    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-}
-
-// helper function to format a size in bytes into a human-readable string
 fn format_size(bytes: usize) -> String {
     const KB: f64 = 1024.0;
     const MB: f64 = KB * 1024.0;

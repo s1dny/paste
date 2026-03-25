@@ -1,8 +1,11 @@
 * {
     box-sizing: border-box;
-    color: #ddd;
     margin: 0;
     padding: 0;
+}
+
+body {
+    color: #ddd;
 }
 
 body {
