@@ -13,13 +13,13 @@
 }
 
 body {
-    color: #ddd;
+    color: #ffffff;
     font-family: 'Sometype Mono', monospace;
     line-height: 1.5;
     width: 100%;
     max-width: 1000px;
     margin: 0 auto;
-    background-color: #1a1b26;
+    background-color: #0a0a0a;
 }
 
 header {
@@ -28,7 +28,7 @@ header {
     align-items: center;
     margin-bottom: 20px;
     margin-top: 20px;
-    border-bottom: 1px solid #24283b;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
     padding-bottom: 10px;
 }
 
@@ -45,11 +45,12 @@ ul {
 li {
     font-size: 16px;
     margin-bottom: 6px;
+    color: #ffffff;
 }
 
 .api-usage {
     margin-bottom: 20px;
-    color: #565f89;
+    color: #ffffff;
 }
 
 .api-usage summary {
@@ -58,7 +59,7 @@ li {
 }
 
 .api-usage pre {
-    background-color: #24283b;
+    background-color: rgba(255, 255, 255, 0.06);
     border-radius: 6px;
     padding: 8px 12px;
     margin-bottom: 6px;
@@ -75,23 +76,23 @@ textarea {
     padding: 10px;
     font-family: 'Sometype Mono', monospace;
     font-size: 16px;
-    color: #ddd;
-    border: 1px solid #24283b;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 6px;
-    background-color: #1a1b26;
+    background-color: transparent;
     resize: vertical;
     margin-bottom: 16px;
 }
 
 textarea:focus {
-    outline: 2px solid #292e42;
+    outline: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .btn {
     display: inline-block;
     border-radius: 6px;
-    background-color: #292e42;
-    color: #ddd;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
     padding: 6px 12px;
     text-align: center;
     text-decoration: none;
@@ -99,10 +100,15 @@ textarea:focus {
     cursor: pointer;
     font-family: 'Sometype Mono', monospace;
     border: none;
+    text-shadow:
+        0 0 3px rgba(255, 255, 255, 0.11),
+        0 0 8px rgba(255, 255, 255, 0.035);
+    transition: text-shadow 180ms ease-out, background-color 180ms ease-out;
 }
 
 .btn:hover {
-    background-color: #24283b;
+    background-color: rgba(255, 255, 255, 0.12);
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
 }
 
 .btn:disabled {
@@ -111,7 +117,7 @@ textarea:focus {
 }
 
 .line-number {
-    color: #565f89;
+    color: #ffffff;
     user-select: none;
     margin-right: 16px;
 }
@@ -123,6 +129,7 @@ pre {
 
 pre code.hljs {
     padding: 0;
+    background: transparent;
 }
 
 code {
@@ -130,12 +137,47 @@ code {
 }
 
 a {
-    color: #61afef;
+    color: transparent;
+    background-image: linear-gradient(
+        115deg,
+        #fbfbfb 0%,
+        #f6dfad 20%,
+        #f0c3da 40%,
+        #b8d8fb 60%,
+        #d9c0f0 80%,
+        #fbfbfb 100%
+    );
+    background-size: 220% 220%;
+    background-position: 0% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
     text-decoration: none;
+    text-shadow: 0 0 16px rgba(186, 198, 235, 0.12);
+    animation: iridescent-shift 7s linear infinite;
+    transition: text-shadow 180ms ease-out, opacity 180ms ease-out;
 }
 
-a:hover {
+a:hover,
+a:focus-visible {
     text-decoration: underline;
+    text-underline-offset: 0.18em;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+}
+
+@keyframes iridescent-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+header p span {
+    color: #ffffff;
 }
 
 .toast {
@@ -143,11 +185,15 @@ a:hover {
     bottom: 20px;
     right: 20px;
     font-size: 16px;
-    background-color: #292e42;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
     border-radius: 6px;
     padding: 10px 20px;
     border: none;
     display: none;
+    text-shadow:
+        0 0 3px rgba(255, 255, 255, 0.11),
+        0 0 8px rgba(255, 255, 255, 0.035);
 }
 
 @media (max-width: 550px) {
