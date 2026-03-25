@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
@@ -10,14 +10,16 @@ use rand::prelude::IndexedRandom;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, RwLock},
 };
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
+static WORDLIST: LazyLock<Vec<&'static str>> =
+    LazyLock::new(|| include_str!("../wordlist.txt").lines().collect());
+
 struct AppState {
-    pastes: Mutex<HashMap<String, Paste>>,
-    wordlist: Vec<&'static str>,
+    pastes: RwLock<HashMap<String, Paste>>,
 }
 
 #[derive(Clone)]
@@ -34,11 +36,17 @@ struct PasteForm {
 
 #[tokio::main]
 async fn main() {
-    let wordlist: Vec<&str> = include_str!("../wordlist.txt").lines().collect();
-
     let app_state = Arc::new(AppState {
-        pastes: Mutex::new(HashMap::new()),
-        wordlist,
+        pastes: RwLock::new(HashMap::new()),
+    });
+
+    let cleanup_state = app_state.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600));
+        loop {
+            interval.tick().await;
+            cleanup_expired_pastes(&cleanup_state);
+        }
     });
 
     let app = Router::new()
@@ -47,6 +55,7 @@ async fn main() {
         .route("/{id}", get(view_paste_handler))
         .route("/{id}/raw", get(raw_paste_handler))
         .nest_service("/static", ServeDir::new("static"))
+        .layer(DefaultBodyLimit::max(1024 * 1024))
         .with_state(app_state);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -70,13 +79,11 @@ async fn create_paste_handler(
     };
 
     let id = {
-        let mut pastes = state.pastes.lock().unwrap();
-        let id = generate_unique_id(&state, &pastes);
+        let mut pastes = state.pastes.write().unwrap();
+        let id = generate_unique_id(&pastes);
         pastes.insert(id.clone(), paste);
         id
     };
-
-    cleanup_expired_pastes(&state);
 
     Redirect::to(&format!("/{}", id))
 }
@@ -92,9 +99,9 @@ async fn view_paste_handler(
 
             let html = include_str!("../static/view.html")
                 .replace("{{PASTE_ID}}", &id)
-                .replace("{{PASTE_CONTENT}}", &html_escape(&paste.content))
                 .replace("{{CREATION_TIME}}", &creation_time_str)
-                .replace("{{PASTE_SIZE}}", &paste_size_str);
+                .replace("{{PASTE_SIZE}}", &paste_size_str)
+                .replace("{{PASTE_CONTENT}}", &html_escape(&paste.content));
             Html(html).into_response()
         }
         None => (
@@ -123,18 +130,18 @@ async fn raw_paste_handler(State(state): State<Arc<AppState>>, Path(id): Path<St
 }
 
 fn get_paste(state: &AppState, id: &str) -> Option<Paste> {
-    let pastes = state.pastes.lock().unwrap();
+    let pastes = state.pastes.read().unwrap();
     pastes
         .get(id)
         .filter(|paste| paste.expires_at > Utc::now())
         .cloned()
 }
 
-fn generate_unique_id(state: &AppState, pastes: &HashMap<String, Paste>) -> String {
+fn generate_unique_id(pastes: &HashMap<String, Paste>) -> String {
     let mut rng = rand::rng();
     loop {
-        let word1 = state.wordlist.choose(&mut rng).unwrap();
-        let word2 = state.wordlist.choose(&mut rng).unwrap();
+        let word1 = WORDLIST.choose(&mut rng).unwrap();
+        let word2 = WORDLIST.choose(&mut rng).unwrap();
         let id = format!("{}.{}", word1, word2);
         if !pastes.contains_key(&id) {
             return id;
@@ -146,7 +153,7 @@ fn cleanup_expired_pastes(state: &AppState) {
     let now = Utc::now();
     state
         .pastes
-        .lock()
+        .write()
         .unwrap()
         .retain(|_, paste| paste.expires_at > now);
 }

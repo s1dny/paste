@@ -18,8 +18,15 @@
         
         <form action="/paste" method="post">
             <textarea name="content" placeholder="paste here" autofocus></textarea>
-            <button type="submit" class="btn">create</button>
+            <button type="submit" class="btn" id="create-btn" disabled>create</button>
         </form>
+        <script>
+            const textarea = document.querySelector('textarea');
+            const btn = document.getElementById('create-btn');
+            textarea.addEventListener('input', () => {
+                btn.disabled = textarea.value.trim().length === 0;
+            });
+        </script>
     </div>
 </body>
 </html>

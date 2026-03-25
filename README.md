@@ -10,7 +10,8 @@
 - Copy paste content to clipboard with a single click
 - View raw paste content
 - Mnemonic url generated from BIP39 wordlist (e.g., "apple.orange")
-- Temporary by default with a 24 expiration
+- Temporary by default with a 24 hour expiration
+- 1MB paste size limit
 
 ## Prerequisites
 

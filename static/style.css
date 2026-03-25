@@ -6,12 +6,10 @@
 
 body {
     color: #ddd;
-}
-
-body {
     font-family: monospace;
     line-height: 1.5;
-    max-width: 800px;
+    width: 100%;
+    max-width: 1000px;
     margin: 0 auto;
     background-color: #1a1b26;
 }
@@ -47,6 +45,7 @@ textarea {
     padding: 10px;
     font-family: monospace;
     font-size: 16px;
+    color: #ddd;
     border: 1px solid #24283b;
     border-radius: 6px;
     background-color: #1a1b26;
@@ -62,6 +61,7 @@ textarea:focus {
     display: inline-block;
     border-radius: 6px;
     background-color: #292e42;
+    color: #ddd;
     padding: 6px 12px;
     text-align: center;
     text-decoration: none;
@@ -73,6 +73,11 @@ textarea:focus {
 
 .btn:hover {
     background-color: #24283b;
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 p,

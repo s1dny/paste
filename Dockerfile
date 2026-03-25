@@ -2,10 +2,12 @@ FROM rust:latest as builder
 
 WORKDIR /app
 
-# copy the entire project
-COPY . .
+# cache dependency build
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
 
 # build the application
+COPY . .
 RUN cargo build --release
 
 FROM debian:bookworm-slim
@@ -20,7 +22,6 @@ RUN apt-get update && \
 # copy the binary and necessary files from the builder
 COPY --from=builder /app/target/release/paste /app/paste
 COPY --from=builder /app/static /app/static
-COPY --from=builder /app/wordlist.txt /app/wordlist.txt
 
 # expose the port the app runs on
 EXPOSE 3000
