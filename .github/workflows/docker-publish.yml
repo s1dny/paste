@@ -14,7 +14,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  REGISTRY_USERNAME: ${{ github.actor }}
+  REGISTRY_USERNAME: ${{ github.repository_owner }}
   REGISTRY_PASSWORD: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
 jobs:
