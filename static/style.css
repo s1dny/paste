@@ -48,28 +48,6 @@ li {
     color: #ffffff;
 }
 
-.api-usage {
-    margin-bottom: 20px;
-    color: #ffffff;
-}
-
-.api-usage summary {
-    cursor: pointer;
-    margin-bottom: 8px;
-}
-
-.api-usage pre {
-    background-color: rgba(255, 255, 255, 0.06);
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin-bottom: 6px;
-    overflow-x: auto;
-}
-
-.api-usage code {
-    font-size: 14px;
-}
-
 textarea {
     width: 100%;
     min-height: 300px;
@@ -92,6 +70,13 @@ textarea:focus {
     display: flex;
     align-items: center;
     gap: 16px;
+    flex-wrap: wrap;
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
@@ -258,6 +243,10 @@ header p span {
     padding: 10px 12px;
     color: #ffb8b8;
     background-color: rgba(255, 116, 116, 0.08);
+}
+
+.burn-gate {
+    margin-top: 4px;
 }
 
 @media (max-width: 550px) {

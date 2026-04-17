@@ -12,39 +12,57 @@
         <header>
             <p style="display: flex; gap: 32px;">
                 <span>{{CREATION_TIME}} UTC</span>
-                <span>{{PASTE_SIZE}}</span>
+                {{PASTE_SIZE_HTML}}
             </p>
             <div class="actions">
-                <button id="copy-btn" class="btn">copy</button>
-                <button id="raw-btn" class="btn">raw</button>
+                <button id="copy-btn" class="btn"{{COPY_BUTTON_DISABLED}}>copy</button>
+                <button id="raw-btn" class="btn"{{RAW_BUTTON_HIDDEN}}>raw</button>
                 <button id="home-btn" class="btn">home</button>
             </div>
         </header>
         
         <div id="toast" class="toast">copied to clipboard</div>
+        {{BURN_GATE}}
         
-        <pre style="visibility: hidden;"><code>{{PASTE_CONTENT}}</code></pre>
+        <pre style="visibility: hidden;"><code data-burn-after-read="{{BURN_AFTER_READ}}">{{PASTE_CONTENT}}</code></pre>
     </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            hljs.highlightAll();
-
             const codeElement = document.querySelector('code');
-            const pasteContent = codeElement.textContent ?? '';
-            const lines = codeElement.innerHTML.split('\n');
-            codeElement.innerHTML = lines.map((line, i) => {
-                const num = String(i + 1).padStart(String(lines.length).length, ' ');
-                return `<span class="line-number">${num}</span>${line}`;
-            }).join('\n');
-
-            document.querySelector('pre').style.visibility = 'visible';
-
+            const preElement = document.querySelector('pre');
+            const burnGate = document.getElementById('burn-gate');
+            const isBurnAfterRead = codeElement.dataset.burnAfterRead === 'true';
+            let pasteContent = codeElement.textContent ?? '';
             const copyBtn = document.getElementById('copy-btn');
             const rawBtn = document.getElementById('raw-btn');
+            const openBurnBtn = document.getElementById('open-burn-btn');
             const homeBtn = document.getElementById('home-btn');
             const toast = document.getElementById('toast');
+
+            const renderCode = (content) => {
+                pasteContent = content;
+                codeElement.textContent = content;
+                codeElement.removeAttribute('data-highlighted');
+                codeElement.className = '';
+                hljs.highlightElement(codeElement);
+
+                const lines = codeElement.innerHTML.split('\n');
+                codeElement.innerHTML = lines.map((line, i) => {
+                    const num = String(i + 1).padStart(String(lines.length).length, ' ');
+                    return `<span class="line-number">${num}</span>${line}`;
+                }).join('\n');
+
+                preElement.style.visibility = 'visible';
+                copyBtn.disabled = false;
+            };
+
+            if (isBurnAfterRead) {
+                preElement.style.display = 'none';
+            } else {
+                renderCode(pasteContent);
+            }
 
             copyBtn.addEventListener('click', async () => {
                 await navigator.clipboard.writeText(pasteContent);
@@ -52,6 +70,40 @@
                 setTimeout(() => {
                     toast.style.display = 'none';
                 }, 2000);
+            });
+
+            openBurnBtn?.addEventListener('click', async () => {
+                openBurnBtn.disabled = true;
+                openBurnBtn.textContent = 'opening...';
+
+                try {
+                    const response = await fetch(`/${encodeURIComponent('{{PASTE_ID}}')}/open`, {
+                        method: 'POST',
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('paste not found or expired');
+                    }
+
+                    const payload = await response.json();
+                    if (typeof payload.content !== 'string') {
+                        throw new Error('paste not found or expired');
+                    }
+
+                    renderCode(payload.content);
+                    preElement.style.display = 'block';
+                    burnGate?.remove();
+                    openBurnBtn.remove();
+                } catch {
+                    openBurnBtn.disabled = false;
+                    openBurnBtn.textContent = 'open and burn';
+                    toast.textContent = 'paste not found or expired';
+                    toast.style.display = 'block';
+                    setTimeout(() => {
+                        toast.style.display = 'none';
+                        toast.textContent = 'copied to clipboard';
+                    }, 2000);
+                }
             });
 
             rawBtn.addEventListener('click', () => {

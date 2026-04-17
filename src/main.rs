@@ -45,6 +45,11 @@ struct ApiResponse {
     url: String,
 }
 
+#[derive(Serialize)]
+struct OpenPasteResponse {
+    content: String,
+}
+
 #[derive(Deserialize, Default)]
 struct ApiCreateParams {
     #[serde(default)]
@@ -70,6 +75,7 @@ async fn main() {
         .route("/", get(home_handler))
         .route("/paste", post(create_paste_handler))
         .route("/{id}", get(view_paste_handler))
+        .route("/{id}/open", post(open_paste_handler))
         .route("/{id}/raw", get(raw_paste_handler))
         .route("/api/paste", post(api_create_paste_handler))
         .nest_service("/static", ServeDir::new("static"))
@@ -90,11 +96,7 @@ fn render_home(error_message: Option<&str>) -> Html<String> {
         .map(|message| format!(r#"<p class="error-banner">{}</p>"#, html_escape(message)))
         .unwrap_or_default();
 
-    Html(
-        include_str!("../static/index.html")
-            .replace("{{ERROR_MESSAGE}}", &error_html)
-            .replace("{{MAX_PASTE_SIZE}}", &format_size(MAX_PASTE_BYTES)),
-    )
+    Html(include_str!("../static/index.html").replace("{{ERROR_MESSAGE}}", &error_html))
 }
 
 fn insert_paste(state: &AppState, content: String, burn_after_read: bool) -> String {
@@ -149,16 +151,45 @@ async fn view_paste_handler(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Response {
-    match get_paste_for_view(&state, &id) {
+    match get_paste(&state, &id) {
         Some(paste) => {
             let creation_time_str = paste.created_at.format("%Y-%m-%d %H:%M:%S").to_string();
-            let paste_size_str = format_size(paste.content.len());
+            let burn_after_read = paste.burn_after_read;
+            let paste_content = if burn_after_read {
+                String::new()
+            } else {
+                html_escape(&paste.content)
+            };
+            let burn_gate = if burn_after_read {
+                r#"
+        <section id="burn-gate" class="burn-gate">
+            <button id="open-burn-btn" class="btn">open and burn</button>
+        </section>
+"#
+                .to_string()
+            } else {
+                String::new()
+            };
+            let raw_button_hidden = if burn_after_read { " hidden" } else { "" };
+            let copy_button_disabled = if burn_after_read { " disabled" } else { "" };
+            let paste_size_html = if burn_after_read {
+                String::new()
+            } else {
+                format!("<span>{}</span>", format_size(paste.content.len()))
+            };
 
             let html = include_str!("../static/view.html")
                 .replace("{{PASTE_ID}}", &id)
                 .replace("{{CREATION_TIME}}", &creation_time_str)
-                .replace("{{PASTE_SIZE}}", &paste_size_str)
-                .replace("{{PASTE_CONTENT}}", &html_escape(&paste.content));
+                .replace("{{PASTE_SIZE_HTML}}", &paste_size_html)
+                .replace("{{PASTE_CONTENT}}", &paste_content)
+                .replace("{{BURN_GATE}}", &burn_gate)
+                .replace("{{RAW_BUTTON_HIDDEN}}", raw_button_hidden)
+                .replace("{{COPY_BUTTON_DISABLED}}", copy_button_disabled)
+                .replace(
+                    "{{BURN_AFTER_READ}}",
+                    if burn_after_read { "true" } else { "false" },
+                );
             Html(html).into_response()
         }
         None => (
@@ -170,7 +201,7 @@ async fn view_paste_handler(
 }
 
 async fn raw_paste_handler(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
-    match get_paste(&state, &id) {
+    match take_paste_for_read(&state, &id) {
         Some(paste) => (
             StatusCode::OK,
             [("Content-Type", "text/plain; charset=utf-8")],
@@ -186,15 +217,40 @@ async fn raw_paste_handler(State(state): State<Arc<AppState>>, Path(id): Path<St
     }
 }
 
-fn get_paste(state: &AppState, id: &str) -> Option<Paste> {
-    let pastes = state.pastes.read().unwrap();
-    pastes
-        .get(id)
-        .filter(|paste| paste.expires_at > Utc::now())
-        .cloned()
+async fn open_paste_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Response {
+    match take_paste_for_read(&state, &id) {
+        Some(paste) => (
+            StatusCode::OK,
+            Json(OpenPasteResponse {
+                content: paste.content,
+            }),
+        )
+            .into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "paste not found or expired" })),
+        )
+            .into_response(),
+    }
 }
 
-fn get_paste_for_view(state: &AppState, id: &str) -> Option<Paste> {
+fn get_paste(state: &AppState, id: &str) -> Option<Paste> {
+    let now = Utc::now();
+    let mut pastes = state.pastes.write().unwrap();
+    let paste = pastes.get(id)?.clone();
+
+    if paste.expires_at <= now {
+        pastes.remove(id);
+        return None;
+    }
+
+    Some(paste)
+}
+
+fn take_paste_for_read(state: &AppState, id: &str) -> Option<Paste> {
     let now = Utc::now();
     let mut pastes = state.pastes.write().unwrap();
     let paste = pastes.get(id)?.clone();
