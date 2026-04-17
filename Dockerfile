@@ -2,11 +2,6 @@ FROM rust:latest AS builder
 
 WORKDIR /app
 
-# cache dependency build
-COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
-
-# build the application
 COPY . .
 RUN cargo build --release
 
@@ -29,4 +24,4 @@ COPY --from=builder /app/static /app/static
 EXPOSE 3000
 
 # run the binary
-CMD ["./paste"]
+ENTRYPOINT ["/app/paste"]
