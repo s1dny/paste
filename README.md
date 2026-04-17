@@ -46,12 +46,6 @@
 
 This repo includes a GitHub Actions workflow at [.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml) that builds the Docker image and publishes it to GitHub Container Registry as `ghcr.io/s1dny/paste`.
 
-### Publishing a new image
-
-```bash
-git push origin main
-```
-
 ### Using the image in k3s
 
 The homelab deployment can point at:
@@ -59,5 +53,3 @@ The homelab deployment can point at:
 ```text
 ghcr.io/s1dny/paste:latest
 ```
-
-If you want more predictable deploys, prefer pinning a version tag instead of `latest`.
