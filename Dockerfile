@@ -14,6 +14,8 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
+LABEL org.opencontainers.image.source="https://github.com/s1dny/paste"
+
 # install necessary runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates libssl-dev && \
