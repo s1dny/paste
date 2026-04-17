@@ -88,6 +88,61 @@ textarea:focus {
     outline: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+.composer-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label input {
+    display: none;
+}
+
+.checkbox-mark {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    background-color: rgba(255, 255, 255, 0.04);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 180ms ease-out, border-color 180ms ease-out;
+}
+
+.checkbox-mark::after {
+    content: "✓";
+    color: #0a0a0a;
+    font-size: 13px;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+
+.checkbox-label input:checked + .checkbox-mark {
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+
+.checkbox-label input:checked + .checkbox-mark::after {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.checkbox-label input:focus-visible + .checkbox-mark {
+    outline: 1px solid rgba(255, 255, 255, 0.5);
+    outline-offset: 2px;
+}
+
 .btn {
     display: inline-block;
     border-radius: 6px;
@@ -194,6 +249,15 @@ header p span {
     text-shadow:
         0 0 3px rgba(255, 255, 255, 0.11),
         0 0 8px rgba(255, 255, 255, 0.035);
+}
+
+.error-banner {
+    margin-bottom: 16px;
+    border: 1px solid rgba(255, 116, 116, 0.35);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #ffb8b8;
+    background-color: rgba(255, 116, 116, 0.08);
 }
 
 @media (max-width: 550px) {

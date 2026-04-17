@@ -16,10 +16,19 @@
             <li>automatic syntax highlighting with <a href="https://highlightjs.org/" target="_blank">highlight.js</a></li>
             <li>curl --data-binary @- https://paste.aza.network/api/paste < file.txt</li>
         </ul>
+
+        {{ERROR_MESSAGE}}
         
         <form action="/paste" method="post">
             <textarea name="content" placeholder="paste here" autofocus></textarea>
-            <button type="submit" class="btn" id="create-btn" disabled>create</button>
+            <div class="composer-actions">
+                <button type="submit" class="btn" id="create-btn" disabled>create</button>
+                <label class="checkbox-label" for="burn-after-read">
+                    <input type="checkbox" id="burn-after-read" name="burn_after_read">
+                    <span class="checkbox-mark"></span>
+                    <span>burn after read</span>
+                </label>
+            </div>
         </form>
         <script>
             const textarea = document.querySelector('textarea');

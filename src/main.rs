@@ -17,6 +17,8 @@ use tower_http::services::ServeDir;
 
 static WORDLIST: LazyLock<Vec<&'static str>> =
     LazyLock::new(|| include_str!("../assets/wordlist.txt").lines().collect());
+const MAX_PASTE_BYTES: usize = 1024 * 1024;
+const MAX_REQUEST_BYTES: usize = MAX_PASTE_BYTES * 4;
 
 struct AppState {
     pastes: RwLock<HashMap<String, Paste>>,
@@ -27,11 +29,14 @@ struct Paste {
     content: String,
     created_at: DateTime<Utc>,
     expires_at: DateTime<Utc>,
+    burn_after_read: bool,
 }
 
 #[derive(Deserialize)]
 struct PasteForm {
     content: String,
+    #[serde(default)]
+    burn_after_read: bool,
 }
 
 #[derive(Serialize)]
@@ -62,7 +67,7 @@ async fn main() {
         .route("/{id}/raw", get(raw_paste_handler))
         .route("/api/paste", post(api_create_paste_handler))
         .nest_service("/static", ServeDir::new("static"))
-        .layer(DefaultBodyLimit::max(1024 * 1024))
+        .layer(DefaultBodyLimit::max(MAX_REQUEST_BYTES))
         .with_state(app_state);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -70,16 +75,29 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn home_handler() -> Html<&'static str> {
-    Html(include_str!("../static/index.html"))
+async fn home_handler() -> Html<String> {
+    render_home(None)
 }
 
-fn insert_paste(state: &AppState, content: String) -> String {
+fn render_home(error_message: Option<&str>) -> Html<String> {
+    let error_html = error_message
+        .map(|message| format!(r#"<p class="error-banner">{}</p>"#, html_escape(message)))
+        .unwrap_or_default();
+
+    Html(
+        include_str!("../static/index.html")
+            .replace("{{ERROR_MESSAGE}}", &error_html)
+            .replace("{{MAX_PASTE_SIZE}}", &format_size(MAX_PASTE_BYTES)),
+    )
+}
+
+fn insert_paste(state: &AppState, content: String, burn_after_read: bool) -> String {
     let now = Utc::now();
     let paste = Paste {
         content,
         created_at: now,
         expires_at: now + Duration::hours(24),
+        burn_after_read,
     };
 
     let mut pastes = state.pastes.write().unwrap();
@@ -91,24 +109,25 @@ fn insert_paste(state: &AppState, content: String) -> String {
 async fn create_paste_handler(
     State(state): State<Arc<AppState>>,
     Form(form): Form<PasteForm>,
-) -> impl IntoResponse {
-    let id = insert_paste(&state, form.content);
-    Redirect::to(&format!("/{}", id))
+) -> Response {
+    match validate_paste_content(&form.content) {
+        Ok(()) => {
+            let id = insert_paste(&state, form.content, form.burn_after_read);
+            Redirect::to(&format!("/{}", id)).into_response()
+        }
+        Err((status, message)) => (status, render_home(Some(message))).into_response(),
+    }
 }
 
 async fn api_create_paste_handler(
     State(state): State<Arc<AppState>>,
     body: String,
 ) -> impl IntoResponse {
-    if body.trim().is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "content must not be empty"})),
-        )
-            .into_response();
+    if let Err((status, message)) = validate_paste_content(&body) {
+        return (status, Json(serde_json::json!({ "error": message }))).into_response();
     }
 
-    let id = insert_paste(&state, body);
+    let id = insert_paste(&state, body, false);
     (
         StatusCode::CREATED,
         Json(ApiResponse {
@@ -123,7 +142,7 @@ async fn view_paste_handler(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Response {
-    match get_paste(&state, &id) {
+    match get_paste_for_view(&state, &id) {
         Some(paste) => {
             let creation_time_str = paste.created_at.format("%Y-%m-%d %H:%M:%S").to_string();
             let paste_size_str = format_size(paste.content.len());
@@ -166,6 +185,38 @@ fn get_paste(state: &AppState, id: &str) -> Option<Paste> {
         .get(id)
         .filter(|paste| paste.expires_at > Utc::now())
         .cloned()
+}
+
+fn get_paste_for_view(state: &AppState, id: &str) -> Option<Paste> {
+    let now = Utc::now();
+    let mut pastes = state.pastes.write().unwrap();
+    let paste = pastes.get(id)?.clone();
+
+    if paste.expires_at <= now {
+        pastes.remove(id);
+        return None;
+    }
+
+    if paste.burn_after_read {
+        pastes.remove(id);
+    }
+
+    Some(paste)
+}
+
+fn validate_paste_content(content: &str) -> Result<(), (StatusCode, &'static str)> {
+    if content.trim().is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "content must not be empty"));
+    }
+
+    if content.len() > MAX_PASTE_BYTES {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "paste must be 1.0MB or smaller",
+        ));
+    }
+
+    Ok(())
 }
 
 fn generate_unique_id(pastes: &HashMap<String, Paste>) -> String {
