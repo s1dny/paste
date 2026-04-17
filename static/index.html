@@ -19,7 +19,7 @@
 
         {{ERROR_MESSAGE}}
         
-        <form action="/paste" method="post">
+        <form action="/paste" method="post" id="paste-form">
             <textarea name="content" placeholder="paste here" autofocus></textarea>
             <div class="composer-actions">
                 <button type="submit" class="btn" id="create-btn" disabled>create</button>
@@ -31,10 +31,80 @@
             </div>
         </form>
         <script>
+            const form = document.getElementById('paste-form');
             const textarea = document.querySelector('textarea');
             const btn = document.getElementById('create-btn');
+            const burnAfterRead = document.getElementById('burn-after-read');
+
+            const setError = (message) => {
+                let banner = document.querySelector('.error-banner');
+                if (!message) {
+                    banner?.remove();
+                    return;
+                }
+                if (!banner) {
+                    banner = document.createElement('p');
+                    banner.className = 'error-banner';
+                    form.before(banner);
+                }
+                banner.textContent = message;
+            };
+
             textarea.addEventListener('input', () => {
                 btn.disabled = textarea.value.trim().length === 0;
+            });
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                const content = textarea.value;
+                if (content.trim().length === 0) {
+                    setError('content must not be empty');
+                    btn.disabled = true;
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.textContent = 'creating...';
+                setError('');
+
+                try {
+                    const url = burnAfterRead.checked ? '/api/paste?burn_after_read=1' : '/api/paste';
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain; charset=utf-8',
+                        },
+                        body: content,
+                    });
+
+                    if (!response.ok) {
+                        let message = 'unable to create paste';
+                        try {
+                            const payload = await response.json();
+                            if (typeof payload.error === 'string' && payload.error.length > 0) {
+                                message = payload.error;
+                            }
+                        } catch {
+                            // fall back to the generic message for non-JSON errors
+                        }
+                        setError(message);
+                        return;
+                    }
+
+                    const payload = await response.json();
+                    if (typeof payload.url === 'string' && payload.url.length > 0) {
+                        window.location.href = payload.url;
+                        return;
+                    }
+
+                    setError('unable to create paste');
+                } catch {
+                    setError('network error while creating paste');
+                } finally {
+                    btn.textContent = 'create';
+                    btn.disabled = textarea.value.trim().length === 0;
+                }
             });
         </script>
     </main>

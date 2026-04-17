@@ -1,5 +1,5 @@
 use axum::{
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse, Json, Redirect, Response},
     routing::{get, post},
@@ -43,6 +43,12 @@ struct PasteForm {
 struct ApiResponse {
     id: String,
     url: String,
+}
+
+#[derive(Deserialize, Default)]
+struct ApiCreateParams {
+    #[serde(default)]
+    burn_after_read: Option<String>,
 }
 
 #[tokio::main]
@@ -121,13 +127,14 @@ async fn create_paste_handler(
 
 async fn api_create_paste_handler(
     State(state): State<Arc<AppState>>,
+    Query(params): Query<ApiCreateParams>,
     body: String,
 ) -> impl IntoResponse {
     if let Err((status, message)) = validate_paste_content(&body) {
         return (status, Json(serde_json::json!({ "error": message }))).into_response();
     }
 
-    let id = insert_paste(&state, body, false);
+    let id = insert_paste(&state, body, params.burn_after_read.is_some());
     (
         StatusCode::CREATED,
         Json(ApiResponse {
