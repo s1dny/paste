@@ -36,7 +36,7 @@ struct Paste {
 struct PasteForm {
     content: String,
     #[serde(default)]
-    burn_after_read: bool,
+    burn_after_read: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -112,7 +112,7 @@ async fn create_paste_handler(
 ) -> Response {
     match validate_paste_content(&form.content) {
         Ok(()) => {
-            let id = insert_paste(&state, form.content, form.burn_after_read);
+            let id = insert_paste(&state, form.content, form.burn_after_read.is_some());
             Redirect::to(&format!("/{}", id)).into_response()
         }
         Err((status, message)) => (status, render_home(Some(message))).into_response(),
