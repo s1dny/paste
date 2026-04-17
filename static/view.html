@@ -32,6 +32,7 @@
             hljs.highlightAll();
 
             const codeElement = document.querySelector('code');
+            const pasteContent = codeElement.textContent ?? '';
             const lines = codeElement.innerHTML.split('\n');
             codeElement.innerHTML = lines.map((line, i) => {
                 const num = String(i + 1).padStart(String(lines.length).length, ' ');
@@ -46,7 +47,7 @@
             const toast = document.getElementById('toast');
 
             copyBtn.addEventListener('click', async () => {
-                await navigator.clipboard.writeText(codeElement.textContent);
+                await navigator.clipboard.writeText(pasteContent);
                 toast.style.display = 'block';
                 setTimeout(() => {
                     toast.style.display = 'none';
